@@ -111,6 +111,8 @@ portctl expose my-app -d myapp.example.com
 ```
 Validates ingress syntax, creates DNS route, updates tunnel configuration, and reloads the local cloudflared daemon.
 
+> 📖 For one-time Cloudflare Tunnel setup instructions, daemon configuration, and prerequisites, see the [Cloudflare Tunnel Guide](docs/cloudflare-tunnel.md).
+
 ### 7. Sync Environment Variables
 
 ```bash
