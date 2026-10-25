@@ -4,20 +4,16 @@ on:
   schedule:
     - cron: '0 0 * * 1' # Every Monday at 00:00 UTC
   push:
-    paths:
-      - 'Cargo.lock'
-      - 'Cargo.toml'
+    branches: [ "main" ]
   pull_request:
-    paths:
-      - 'Cargo.lock'
-      - 'Cargo.toml'
+    branches: [ "main" ]
 
 jobs:
   audit:
     name: Cargo Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Security audit
         uses: rustsec/audit-check@v2.0.0
         with:
