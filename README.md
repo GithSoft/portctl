@@ -164,6 +164,7 @@ Contributions are welcome! We adhere to community standards and best practices:
 - 📜 **Code of Conduct**: We follow the Contributor Covenant v2.1 in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - 🔒 **Security Disclosures**: Read our security response policy in [SECURITY.md](SECURITY.md).
 - 📝 **Release History**: See recent enhancements and breaking changes in [CHANGELOG.md](CHANGELOG.md).
+- 🗺️ **Product Roadmap**: Explore our long-term vision and version milestones in [ROADMAP.md](docs/ROADMAP.md).
 
 ```bash
 cargo fmt --all -- --check
