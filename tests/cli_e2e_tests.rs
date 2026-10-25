@@ -191,3 +191,90 @@ fn test_cli_unexpose_unregistered() {
         .failure()
         .stderr(predicate::str::contains("not registered"));
 }
+
+#[test]
+fn test_cli_wait_command() {
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    // 1. Success test
+    let mut cmd = Command::cargo_bin("portctl").unwrap();
+    cmd.args([
+        "wait",
+        &port.to_string(),
+        "--timeout",
+        "3",
+        "--interval",
+        "50",
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("is ready"));
+
+    // 2. JSON success test
+    let mut json_cmd = Command::cargo_bin("portctl").unwrap();
+    json_cmd
+        .args(["wait", &port.to_string(), "--json", "--timeout", "3"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(r#""status":"ready"#))
+        .stdout(predicate::str::contains(r#""ready":true"#));
+
+    drop(listener);
+
+    // 3. Timeout test on unbound port
+    let mut timeout_cmd = Command::cargo_bin("portctl").unwrap();
+    timeout_cmd
+        .args(["wait", "59877", "--timeout", "1", "--interval", "50"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_cli_rename_and_delete() {
+    let tmp = tempdir().unwrap();
+    let config_dir = tmp.path().join("config");
+    let registry_dir = tmp.path().join("registry");
+
+    // Assign
+    let mut assign_cmd = Command::cargo_bin("portctl").unwrap();
+    assign_cmd
+        .env("PORTCTL_CONFIG_DIR", &config_dir)
+        .env("PORTCTL_REGISTRY_DIR", &registry_dir)
+        .args(["assign", "legacy-svc", "-f", "4123"])
+        .assert()
+        .success();
+
+    // Rename legacy-svc -> modern-svc
+    let mut rename_cmd = Command::cargo_bin("portctl").unwrap();
+    rename_cmd
+        .env("PORTCTL_CONFIG_DIR", &config_dir)
+        .env("PORTCTL_REGISTRY_DIR", &registry_dir)
+        .args(["rename", "legacy-svc", "modern-svc"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Renamed 'legacy-svc' -> 'modern-svc'",
+        ));
+
+    // Verify get modern-svc works
+    let mut get_cmd = Command::cargo_bin("portctl").unwrap();
+    get_cmd
+        .env("PORTCTL_CONFIG_DIR", &config_dir)
+        .env("PORTCTL_REGISTRY_DIR", &registry_dir)
+        .args(["get", "modern-svc"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("4123"));
+
+    // Delete modern-svc
+    let mut del_cmd = Command::cargo_bin("portctl").unwrap();
+    del_cmd
+        .env("PORTCTL_CONFIG_DIR", &config_dir)
+        .env("PORTCTL_REGISTRY_DIR", &registry_dir)
+        .args(["delete", "modern-svc"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Removed application 'modern-svc'"));
+}

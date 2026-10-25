@@ -65,6 +65,31 @@ portctl kill web-frontend
 portctl kill 5432 --force   # Override protected infrastructure port guardrail
 ```
 
+### `portctl rename <old_name> <new_name>`
+Renames a registered application while preserving its exact allocated port, ingress tunnel, and metadata.
+
+```bash
+portctl rename word-frequency-app wordradar
+portctl rename legacy-api modern-api --json
+```
+
+### `portctl delete <app> (alias: remove)`
+Unregisters an application from the port registry and releases its port back to the allocation pool.
+
+```bash
+portctl delete old-service
+portctl remove retired-worker --json
+```
+
+### `portctl wait [target]`
+Blocks script execution until a port or application service is listening and ready.
+
+```bash
+portctl wait 3000                       # Wait for port 3000 (TCP default)
+portctl wait web-api -m http -t 15      # Wait for HTTP 2xx/3xx on web-api port within 15s
+portctl wait --path /health --json      # Probe custom HTTP path with JSON output
+```
+
 ### `portctl expose <app>`
 Automates Cloudflare Tunnel ingress configuration and daemon reload.
 

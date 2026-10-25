@@ -425,6 +425,131 @@ impl PortRegistry {
         all.into_iter().find(|m| m.port == port)
     }
 
+    pub fn delete_app(&self, app_name: &str) -> Result<Option<MergedPortItem>, String> {
+        self.with_write_lock(|| {
+            let mut removed_item = None;
+
+            // 1. Remove from canonical
+            let mut canonical = self.load_canonical_apps();
+            if let Some(app) = canonical.apps.remove(app_name) {
+                removed_item = Some(MergedPortItem {
+                    name: app_name.to_string(),
+                    port: app.port,
+                    scope: "canonical-global".to_string(),
+                    entry_type: "canonical".to_string(),
+                    tunnel: app.tunnel,
+                    repo: app.repo.unwrap_or_default(),
+                    description: app.description.unwrap_or_default(),
+                });
+                let path = self.registry_dir.join("canonical-apps.json");
+                atomic_write_json(&path, &canonical)?;
+            }
+
+            // 2. Remove from machine allocations
+            let machines_dir = self.registry_dir.join("machines");
+            if let Ok(entries) = fs::read_dir(&machines_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(mut m) =
+                                serde_json::from_str::<MachineAllocationFile>(&content)
+                            {
+                                if let Some(item) = m.allocated.remove(app_name) {
+                                    if removed_item.is_none() {
+                                        removed_item = Some(MergedPortItem {
+                                            name: app_name.to_string(),
+                                            port: item.port,
+                                            scope: "machine-local".to_string(),
+                                            entry_type: "machine".to_string(),
+                                            tunnel: None,
+                                            repo: String::new(),
+                                            description: String::new(),
+                                        });
+                                    }
+                                    atomic_write_json(&path, &m)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.sync_ports_json()?;
+            Ok(removed_item)
+        })
+    }
+
+    pub fn rename_app(&self, old_name: &str, new_name: &str) -> Result<MergedPortItem, String> {
+        let clean_new = new_name.trim();
+        if clean_new.is_empty() {
+            return Err("New application name cannot be empty".to_string());
+        }
+        if old_name == clean_new {
+            return Err("Old name and new name are identical".to_string());
+        }
+
+        self.with_write_lock(|| {
+            // Check if new_name already exists
+            if let Some(existing) = self.find_by_name(clean_new) {
+                return Err(format!(
+                    "Cannot rename: '{}' already exists in registry with port {}",
+                    clean_new, existing.port
+                ));
+            }
+
+            // 1. Try canonical apps
+            let mut canonical = self.load_canonical_apps();
+            if let Some(app) = canonical.apps.remove(old_name) {
+                canonical.apps.insert(clean_new.to_string(), app.clone());
+                let path = self.registry_dir.join("canonical-apps.json");
+                atomic_write_json(&path, &canonical)?;
+                self.sync_ports_json()?;
+                return Ok(MergedPortItem {
+                    name: clean_new.to_string(),
+                    port: app.port,
+                    scope: "canonical-global".to_string(),
+                    entry_type: "canonical".to_string(),
+                    tunnel: app.tunnel,
+                    repo: app.repo.unwrap_or_default(),
+                    description: app.description.unwrap_or_default(),
+                });
+            }
+
+            // 2. Try machine allocations
+            let machines_dir = self.registry_dir.join("machines");
+            if let Ok(entries) = fs::read_dir(&machines_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(mut m) =
+                                serde_json::from_str::<MachineAllocationFile>(&content)
+                            {
+                                if let Some(item) = m.allocated.remove(old_name) {
+                                    m.allocated.insert(clean_new.to_string(), item.clone());
+                                    atomic_write_json(&path, &m)?;
+                                    self.sync_ports_json()?;
+                                    return Ok(MergedPortItem {
+                                        name: clean_new.to_string(),
+                                        port: item.port,
+                                        scope: "machine-local".to_string(),
+                                        entry_type: "machine".to_string(),
+                                        tunnel: None,
+                                        repo: String::new(),
+                                        description: String::new(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Err(format!("Application '{}' not found in registry", old_name))
+        })
+    }
+
     pub fn sync_ports_json(&self) -> Result<(), String> {
         let merged = self.get_all_merged();
         let legacy = LegacyPortsFile {

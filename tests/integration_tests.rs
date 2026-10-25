@@ -180,3 +180,67 @@ fn test_tunnel_provider_trait_and_unexpose_unregistered() {
     let err = tunnel.unexpose("nonexistent-app", None).unwrap_err();
     assert!(err.contains("not registered"));
 }
+
+#[test]
+fn test_wait_for_port_tcp_and_timeout() {
+    use portctl::probe::wait_for_port;
+    use std::net::TcpListener;
+
+    // 1. Immediate ready on active listener
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let res = wait_for_port(port, "tcp", "/", 2, 50).expect("Should connect to listening port");
+    assert!(res.ready);
+    assert_eq!(res.port, port);
+    assert_eq!(res.mode, "tcp");
+
+    drop(listener);
+
+    // 2. Timeout on unbound port
+    let timeout_res = wait_for_port(59876, "tcp", "/", 1, 50);
+    assert!(timeout_res.is_err());
+}
+
+#[test]
+fn test_rename_and_delete_app() {
+    let tmp = tempdir().unwrap();
+    let registry_dir = tmp.path().join("registry");
+    let config_dir = tmp.path().join("config");
+
+    let registry = PortRegistry::with_dirs(registry_dir, config_dir);
+    let mut apps = CanonicalAppsFile::default();
+    apps.apps.insert(
+        "word-frequency-app".to_string(),
+        CanonicalAppItem {
+            port: 4001,
+            tunnel: Some("words.example.com".to_string()),
+            repo: Some("https://github.com/example/words".to_string()),
+            description: Some("Word app".to_string()),
+        },
+    );
+    registry.save_canonical_apps(&apps).unwrap();
+
+    // 1. Rename word-frequency-app -> wordradar
+    let renamed = registry
+        .rename_app("word-frequency-app", "wordradar")
+        .unwrap();
+    assert_eq!(renamed.name, "wordradar");
+    assert_eq!(renamed.port, 4001);
+    assert_eq!(renamed.tunnel.as_deref(), Some("words.example.com"));
+
+    // Check old is gone, new is present
+    assert!(registry.find_by_name("word-frequency-app").is_none());
+    assert!(registry.find_by_name("wordradar").is_some());
+
+    // 2. Rename collision with existing name should fail
+    let collision_err = registry.rename_app("wordradar", "wordradar").unwrap_err();
+    assert!(collision_err.contains("identical"));
+
+    // 3. Delete app
+    let deleted = registry.delete_app("wordradar").unwrap().unwrap();
+    assert_eq!(deleted.name, "wordradar");
+    assert_eq!(deleted.port, 4001);
+
+    assert!(registry.find_by_name("wordradar").is_none());
+}

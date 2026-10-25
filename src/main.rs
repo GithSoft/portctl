@@ -10,7 +10,7 @@ use portctl::allocator::PortAllocator;
 use portctl::detector::{detect_project_name, get_machine_node_id};
 use portctl::doctor::DoctorEngine;
 use portctl::killer::kill_target;
-use portctl::probe::probe_port;
+use portctl::probe::{probe_port, wait_for_port};
 use portctl::registry::PortRegistry;
 use portctl::runner::execute_with_port;
 use portctl::tunnel::TunnelManager;
@@ -105,6 +105,30 @@ enum Commands {
         force: bool,
     },
 
+    /// Rename a registered application while preserving its allocated port and tunnel
+    Rename {
+        /// Current application name
+        old_name: String,
+
+        /// New application name
+        new_name: String,
+
+        /// Output results in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Remove an application registration and release its allocated port
+    #[command(alias = "remove")]
+    Delete {
+        /// Application name to unregister
+        app_name: String,
+
+        /// Output results in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Run comprehensive system health check and diagnostics
     Doctor {
         /// Automatically repair detected file permissions and sync issues
@@ -112,6 +136,32 @@ enum Commands {
         fix: bool,
 
         /// Output diagnostic report in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Wait until a port or application service is listening and ready
+    Wait {
+        /// Target port number or application name (defaults to current project directory)
+        target: Option<String>,
+
+        /// Verification mode: tcp (default) or http
+        #[arg(short, long, default_value = "tcp")]
+        mode: String,
+
+        /// Maximum seconds to wait before timeout (default: 30)
+        #[arg(short, long, default_value_t = 30)]
+        timeout: u64,
+
+        /// Polling interval in milliseconds (default: 250)
+        #[arg(short, long, default_value_t = 250)]
+        interval: u64,
+
+        /// Expected HTTP request path for http mode (default: "/")
+        #[arg(long, default_value = "/")]
+        path: String,
+
+        /// Output results in JSON format
         #[arg(long)]
         json: bool,
     },
@@ -408,6 +458,112 @@ fn main() {
             }
         }
 
+        Commands::Rename {
+            old_name,
+            new_name,
+            json,
+        } => match registry.rename_app(&old_name, &new_name) {
+            Ok(item) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "success",
+                            "action": "rename",
+                            "old_name": old_name,
+                            "new_name": item.name,
+                            "port": item.port,
+                            "tunnel": item.tunnel
+                        })
+                    );
+                } else {
+                    println!(
+                        "{} Renamed '{}' -> '{}' (port {} preserved)",
+                        "✅".green(),
+                        old_name.cyan(),
+                        item.name.bold().green(),
+                        item.port.to_string().yellow()
+                    );
+                }
+            }
+            Err(e) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "error",
+                            "error": e
+                        })
+                    );
+                } else {
+                    eprintln!("{} {}", "❌ Error:".bold().red(), e);
+                }
+                process::exit(1);
+            }
+        },
+
+        Commands::Delete { app_name, json } => match registry.delete_app(&app_name) {
+            Ok(Some(item)) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "success",
+                            "action": "delete",
+                            "app_name": item.name,
+                            "released_port": item.port
+                        })
+                    );
+                } else {
+                    println!(
+                        "{} Removed application '{}' (released port {})",
+                        "✅".green(),
+                        item.name.cyan(),
+                        item.port.to_string().yellow()
+                    );
+                    if let Some(t) = item.tunnel {
+                        println!(
+                            "   {} Associated tunnel domain was: {}. Run 'portctl unexpose' if cloudflared config needs cleanup.",
+                            "ℹ️".blue(),
+                            t.blue()
+                        );
+                    }
+                }
+            }
+            Ok(None) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "error",
+                            "error": format!("Application '{}' not found in registry", app_name)
+                        })
+                    );
+                } else {
+                    eprintln!(
+                        "{} Application '{}' not found in registry",
+                        "❌".red(),
+                        app_name
+                    );
+                }
+                process::exit(1);
+            }
+            Err(e) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "error",
+                            "error": e
+                        })
+                    );
+                } else {
+                    eprintln!("{} {}", "❌ Error:".bold().red(), e);
+                }
+                process::exit(1);
+            }
+        },
+
         Commands::Doctor { fix, json } => {
             let engine = DoctorEngine::new(&registry);
             let report = engine.diagnose(fix);
@@ -464,6 +620,114 @@ fn main() {
                 );
             }
             println!();
+        }
+
+        Commands::Wait {
+            target,
+            mode,
+            timeout,
+            interval,
+            path,
+            json,
+        } => {
+            let (port, display_name) = match target {
+                Some(ref t) => {
+                    if let Ok(p) = t.parse::<u16>() {
+                        (p, format!("port {}", p))
+                    } else if let Some(entry) = registry.find_by_name(t) {
+                        (entry.port, format!("app '{}'", t))
+                    } else {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::json!({
+                                    "status": "error",
+                                    "error": format!("App '{}' not found in registry", t)
+                                })
+                            );
+                        } else {
+                            eprintln!("{} App '{}' not found in registry", "❌".red(), t);
+                        }
+                        process::exit(1);
+                    }
+                }
+                None => {
+                    let cwd = env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                    let detected_name = detect_project_name(&cwd);
+                    if let Some(entry) = registry.find_by_name(&detected_name) {
+                        (entry.port, format!("app '{}'", detected_name))
+                    } else {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::json!({
+                                    "status": "error",
+                                    "error": format!("Current directory '{}' not found in registry", detected_name)
+                                })
+                            );
+                        } else {
+                            eprintln!(
+                                "{} Current directory '{}' not registered in portctl",
+                                "❌".red(),
+                                detected_name
+                            );
+                        }
+                        process::exit(1);
+                    }
+                }
+            };
+
+            if !json {
+                println!(
+                    "⏳ Waiting for {} on port {} (mode: {}, timeout: {}s)...",
+                    display_name.cyan(),
+                    port.to_string().yellow(),
+                    mode.bold(),
+                    timeout
+                );
+            }
+
+            match wait_for_port(port, &mode, &path, timeout, interval) {
+                Ok(res) => {
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "status": "ready",
+                                "port": res.port,
+                                "mode": res.mode,
+                                "ready": res.ready,
+                                "elapsed_ms": res.elapsed_ms
+                            })
+                        );
+                    } else {
+                        println!(
+                            "{} {} on port {} is ready (took {}ms)",
+                            "✓".green().bold(),
+                            display_name,
+                            port.to_string().yellow(),
+                            res.elapsed_ms
+                        );
+                    }
+                    process::exit(0);
+                }
+                Err(e) => {
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "status": "timeout",
+                                "port": port,
+                                "mode": mode,
+                                "error": e.to_string()
+                            })
+                        );
+                    } else {
+                        eprintln!("{} {}", "✗".red().bold(), e);
+                    }
+                    process::exit(1);
+                }
+            }
         }
 
         Commands::Completion { shell } => {
