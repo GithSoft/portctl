@@ -8,6 +8,8 @@ use std::process;
 
 use portctl::allocator::PortAllocator;
 use portctl::detector::{detect_project_name, get_machine_node_id};
+use portctl::doctor::DoctorEngine;
+use portctl::killer::kill_target;
 use portctl::probe::probe_port;
 use portctl::registry::PortRegistry;
 use portctl::runner::execute_with_port;
@@ -17,7 +19,7 @@ use portctl::tunnel::TunnelManager;
 #[command(
     name = "portctl",
     author = "tackelua <tackelua@gmail.com>",
-    version = "2.0.0",
+    version = "2.1.0",
     about = "Universal Port Manager & Automated Cloudflare Ingress CLI",
     long_about = "Lightweight, zero-daemon, local-first Port Manager and automated Edge Ingress CLI written in Rust."
 )]
@@ -81,6 +83,44 @@ enum Commands {
         /// Bypass security blacklist check for sensitive ports
         #[arg(long)]
         force: bool,
+    },
+
+    /// Remove an application's ingress rule from Cloudflare Tunnel
+    Unexpose {
+        /// Application name
+        app_name: String,
+
+        /// Optional domain name override to unbind
+        #[arg(short, long)]
+        domain: Option<String>,
+    },
+
+    /// Gracefully terminate process occupying a port or assigned to an app
+    Kill {
+        /// Target port number or application name
+        target: String,
+
+        /// Bypass security guardrail for sensitive ports or root processes
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Run comprehensive system health check and diagnostics
+    Doctor {
+        /// Automatically repair detected file permissions and sync issues
+        #[arg(long)]
+        fix: bool,
+
+        /// Output diagnostic report in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Generate shell completion scripts for bash, zsh, fish, etc.
+    Completion {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
     },
 
     /// Generate or update PORT environment variable
@@ -322,6 +362,115 @@ fn main() {
                     process::exit(1);
                 }
             }
+        }
+
+        Commands::Unexpose { app_name, domain } => {
+            println!(
+                "🧹 Removing tunnel ingress rule for '{}'...",
+                app_name.cyan()
+            );
+            let tunnel = TunnelManager::new(&registry);
+            match tunnel.unexpose(&app_name, domain.as_deref()) {
+                Ok(res) => {
+                    println!(
+                        "✅ Successfully unexposed '{}'!",
+                        res.app_name.bold().green()
+                    );
+                    if let Some(d) = res.domain {
+                        println!("   Revoked Domain: {}", d.dimmed());
+                    }
+                    println!("   Port Released : {}", res.port);
+                    println!("   Rules Removed : {}", res.rules_removed);
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "❌ Unexpose failed:".bold().red(), e);
+                    process::exit(1);
+                }
+            }
+        }
+
+        Commands::Kill { target, force } => {
+            println!("🔍 Investigating target '{}'...", target.cyan());
+            match kill_target(&registry, &target, force) {
+                Ok(res) => {
+                    if res.socket_released {
+                        println!("✅ {}", res.message.bold().green());
+                    } else if res.in_time_wait {
+                        println!("⏳ {}", res.message.bold().yellow());
+                    } else {
+                        println!("⚠️ {}", res.message.bold().yellow());
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "❌ Kill failed:".bold().red(), e);
+                    process::exit(1);
+                }
+            }
+        }
+
+        Commands::Doctor { fix, json } => {
+            let engine = DoctorEngine::new(&registry);
+            let report = engine.diagnose(fix);
+
+            if json {
+                if let Ok(serialized) = serde_json::to_string_pretty(&report) {
+                    println!("{}", serialized);
+                }
+                return;
+            }
+
+            println!("\n🩺 {}", "PORTCTL SYSTEM DIAGNOSTIC REPORT".bold());
+            println!("{}\n", "─".repeat(50).dimmed());
+
+            if report.issues.is_empty() {
+                println!(
+                    "✅ {}",
+                    "Everything looks healthy! No issues detected."
+                        .bold()
+                        .green()
+                );
+            } else {
+                for issue in &report.issues {
+                    let badge = match issue.severity.as_str() {
+                        "ERROR" => "❌ [ERROR]".bold().red(),
+                        "WARNING" => "⚠️  [WARN] ".bold().yellow(),
+                        _ => "ℹ️  [INFO] ".bold().cyan(),
+                    };
+                    let fix_status = if issue.fixed {
+                        " [REPAIRED]".green().bold()
+                    } else if issue.fixable {
+                        " (Run 'portctl doctor --fix' to repair)".dimmed()
+                    } else {
+                        "".normal()
+                    };
+                    println!(
+                        "{} {}: {}{}",
+                        badge,
+                        issue.category.bold(),
+                        issue.description,
+                        fix_status
+                    );
+                }
+            }
+
+            println!(
+                "\nSummary: {} issue(s) detected ({} fixed).",
+                report.total_issues, report.fixed_count
+            );
+            if !report.is_healthy && !fix {
+                println!(
+                    "{}",
+                    "Run 'portctl doctor --fix' to automatically resolve fixable issues.".dimmed()
+                );
+            }
+            println!();
+        }
+
+        Commands::Completion { shell } => {
+            use clap::CommandFactory;
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
         }
 
         Commands::Env { write, export } => {

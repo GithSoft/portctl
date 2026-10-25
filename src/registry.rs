@@ -178,6 +178,60 @@ impl PortRegistry {
         }
     }
 
+    /// Dedicated advisory lockfile for cross-process mutations.
+    /// Never unlinked or renamed to preserve POSIX inode stability.
+    pub fn get_lock_path(&self) -> PathBuf {
+        self.config_dir.join(".lock")
+    }
+
+    /// Execute a closure under exclusive advisory write lock with a 2000ms deadline.
+    pub fn with_write_lock<F, R>(&self, f: F) -> Result<R, String>
+    where
+        F: FnOnce() -> Result<R, String>,
+    {
+        let lock_path = self.get_lock_path();
+        let parent = lock_path.parent().unwrap_or_else(|| Path::new("."));
+        if !parent.exists() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)
+            .map_err(|e| format!("Failed to open lockfile {:?}: {}", lock_path, e))?;
+
+        #[cfg(unix)]
+        {
+            let permissions = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(&lock_path, permissions);
+        }
+
+        let mut lock = fd_lock::RwLock::new(file);
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_millis(2000);
+
+        let _guard = loop {
+            match lock.try_write() {
+                Ok(guard) => break guard,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    if start.elapsed() >= timeout {
+                        return Err(format!(
+                            "Timeout acquiring exclusive registry write lock after 2000ms on {:?}",
+                            lock_path
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(e) => return Err(format!("Error acquiring lock on {:?}: {}", lock_path, e)),
+            }
+        };
+
+        f()
+    }
+
     fn bootstrap_if_empty(&self) {
         let canonical_path = self.registry_dir.join("canonical-apps.json");
         if canonical_path.exists() {
@@ -270,15 +324,19 @@ impl PortRegistry {
     }
 
     pub fn save_fixed_services(&self, data: &FixedServicesFile) -> Result<(), String> {
-        let path = self.registry_dir.join("fixed-services.json");
-        atomic_write_json(&path, data)?;
-        self.sync_ports_json()
+        self.with_write_lock(|| {
+            let path = self.registry_dir.join("fixed-services.json");
+            atomic_write_json(&path, data)?;
+            self.sync_ports_json()
+        })
     }
 
     pub fn save_canonical_apps(&self, data: &CanonicalAppsFile) -> Result<(), String> {
-        let path = self.registry_dir.join("canonical-apps.json");
-        atomic_write_json(&path, data)?;
-        self.sync_ports_json()
+        self.with_write_lock(|| {
+            let path = self.registry_dir.join("canonical-apps.json");
+            atomic_write_json(&path, data)?;
+            self.sync_ports_json()
+        })
     }
 
     pub fn save_machine_allocation(
@@ -287,15 +345,17 @@ impl PortRegistry {
         app_name: &str,
         item: MachineAllocationItem,
     ) -> Result<(), String> {
-        let path = self
-            .registry_dir
-            .join("machines")
-            .join(format!("{}.json", node_id));
-        let mut machine_data = self.load_machine_allocations(node_id);
-        machine_data.node_id = node_id.to_string();
-        machine_data.allocated.insert(app_name.to_string(), item);
-        atomic_write_json(&path, &machine_data)?;
-        self.sync_ports_json()
+        self.with_write_lock(|| {
+            let path = self
+                .registry_dir
+                .join("machines")
+                .join(format!("{}.json", node_id));
+            let mut machine_data = self.load_machine_allocations(node_id);
+            machine_data.node_id = node_id.to_string();
+            machine_data.allocated.insert(app_name.to_string(), item);
+            atomic_write_json(&path, &machine_data)?;
+            self.sync_ports_json()
+        })
     }
 
     pub fn get_all_merged(&self) -> Vec<MergedPortItem> {

@@ -10,10 +10,14 @@
 //! - [`probe`]: Real-time socket status verification using OS TCP listener binding and `lsof` process diagnostics.
 //! - [`tunnel`]: Automates Cloudflare Tunnel ingress configuration and daemon kickstarts.
 //! - [`runner`]: Injects `$PORT` into child processes for zero-boilerplate 12-factor apps.
+//! - [`killer`]: Process hunter for gracefully terminating processes occupying ports.
+//! - [`doctor`]: System diagnostics for auditing permissions, hijacks, ghost entries, and ingress rules.
 
 pub mod allocator;
 pub mod constants;
 pub mod detector;
+pub mod doctor;
+pub mod killer;
 pub mod probe;
 pub mod registry;
 pub mod runner;
