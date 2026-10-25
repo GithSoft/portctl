@@ -12,6 +12,9 @@ jobs:
   audit:
     name: Cargo Audit
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Security audit
