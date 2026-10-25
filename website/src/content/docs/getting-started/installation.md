@@ -12,7 +12,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 <Tabs>
   <TabItem label="macOS & Linux (curl | sh)">
 ```bash
-curl -fsSL https://portctl.githsoft.com/install.sh | sh
+curl -fsSL https://portctl.pages.dev/install.sh | sh
 ```
 
 The installer will:
@@ -24,7 +24,7 @@ The installer will:
 
   <TabItem label="Windows (PowerShell)">
 ```powershell
-irm https://portctl.githsoft.com/install.ps1 | iex
+irm https://portctl.pages.dev/install.ps1 | iex
 ```
 
 The script will:

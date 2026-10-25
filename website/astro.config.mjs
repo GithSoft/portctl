@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://portctl.githsoft.com',
+	site: 'https://portctl.pages.dev',
 	integrations: [
 		starlight({
 			title: 'portctl',

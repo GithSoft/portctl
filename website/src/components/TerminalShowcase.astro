@@ -27,11 +27,11 @@
         <div class="line text-dim">┌──────────────────────┬──────┬──────────┬──────────────┬────────────────────────────┐</div>
         <div class="line text-bold">│ APPLICATION          │ PORT │ SCOPE    │ STATUS       │ TUNNEL DOMAIN              │</div>
         <div class="line text-dim">├──────────────────────┼──────┼──────────┼──────────────┼────────────────────────────┤</div>
-        <div class="line">│ <span class="text-cyan">web-frontend</span>         │ 3000 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">frontend.githsoft.com</span>      │</div>
+        <div class="line">│ <span class="text-cyan">web-frontend</span>         │ 3000 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">frontend.example.com</span>      │</div>
         <div class="line">│ <span class="text-cyan">auth-service</span>         │ 4001 │ local    │ <span class="badge-active">● ACTIVE</span>     │ -                          │</div>
         <div class="line">│ <span class="text-cyan">redis-cache</span>          │ 6379 │ internal │ <span class="badge-protect">● PROTECTED</span>  │ -                          │</div>
         <div class="line">│ <span class="text-cyan">billing-worker</span>       │ 4004 │ local    │ <span class="badge-idle">○ IDLE</span>       │ -                          │</div>
-        <div class="line">│ <span class="text-cyan">api-gateway</span>          │ 8080 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">api.githsoft.com</span>           │</div>
+        <div class="line">│ <span class="text-cyan">api-gateway</span>          │ 8080 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">api.example.com</span>           │</div>
         <div class="line text-dim">└──────────────────────┴──────┴──────────┴──────────────┴────────────────────────────┘</div>
         <div class="line text-success">✓ 5 services registered | 4 active sockets probed in 2.2ms</div>
       </div>
@@ -45,7 +45,7 @@
         <div class="line">  ├─ <span class="text-dim">Process:</span>    node (/Users/dev/.nvm/versions/node/v24.22.0/bin/node)</div>
         <div class="line">  ├─ <span class="text-dim">User:</span>       gith</div>
         <div class="line">  ├─ <span class="text-dim">Memory:</span>     118.4 MB RSS</div>
-        <div class="line">  └─ <span class="text-dim">Ingress:</span>    <span class="text-blue">https://frontend.githsoft.com</span> (Cloudflare Tunnel)</div>
+        <div class="line">  └─ <span class="text-dim">Ingress:</span>    <span class="text-blue">https://frontend.example.com</span> (Cloudflare Tunnel)</div>
       </div>
 
       <!-- Tab 3: kill -->
@@ -60,14 +60,14 @@
 
       <!-- Tab 4: expose -->
       <div class="cmd-content" id="cmd-expose">
-        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl expose web-frontend -d frontend.githsoft.com</span></div>
-        <div class="line text-cyan">==> Validating RFC 1123 domain syntax: frontend.githsoft.com... <span class="text-success">OK</span></div>
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl expose web-frontend -d frontend.example.com</span></div>
+        <div class="line text-cyan">==> Validating RFC 1123 domain syntax: frontend.example.com... <span class="text-success">OK</span></div>
         <div class="line text-cyan">==> Verifying socket security guardrails (port 3000)... <span class="text-success">OK</span></div>
         <div class="line text-cyan">==> Checking Cloudflare DNS routing record... <span class="text-success">OK</span></div>
         <div class="line text-cyan">==> Updating ingress rules in ~/.cloudflared/config.yml... <span class="text-success">OK</span></div>
         <div class="line text-cyan">==> Reloading cloudflared daemon... <span class="text-success">OK</span></div>
         <div class="line text-success">✨ Service 'web-frontend' is now LIVE on the Edge!</div>
-        <div class="line">🔗 <span class="text-blue">https://frontend.githsoft.com</span> ➔ <span class="text-dim">http://127.0.0.1:3000</span></div>
+        <div class="line">🔗 <span class="text-blue">https://frontend.example.com</span> ➔ <span class="text-dim">http://127.0.0.1:3000</span></div>
       </div>
 
       <!-- Tab 5: doctor -->
