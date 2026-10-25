@@ -1,0 +1,9 @@
+/install.sh
+  Content-Type: text/x-sh; charset=utf-8
+  Cache-Control: public, max-age=300, s-maxage=3600
+  Access-Control-Allow-Origin: *
+
+/install.ps1
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300, s-maxage=3600
+  Access-Control-Allow-Origin: *

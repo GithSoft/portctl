@@ -1,10 +1,13 @@
 # portctl ⚡
 
+[![Website](https://img.shields.io/badge/website-portctl.githsoft.com-00e5ff)](https://portctl.githsoft.com)
 [![CI](https://github.com/tackelua/portctl/actions/workflows/ci.yml/badge.svg)](https://github.com/tackelua/portctl/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-orange.svg)](https://www.rust-lang.org/)
 
 **portctl** is a lightweight, zero-daemon, local-first Port Manager and automated Edge Ingress CLI written in pure Rust.
+
+Official Website & Documentation: [https://portctl.githsoft.com](https://portctl.githsoft.com)
 
 It prevents port collisions across microservices, eliminates hardcoded port numbers, auto-detects project identities, and connects local services to the Internet via Cloudflare Tunnels in a single command.
 
@@ -30,10 +33,10 @@ No Rust toolchain or package manager required! Automatically detects your OS and
 
 ```bash
 # macOS & Linux (curl | sh)
-curl -fsSL https://raw.githubusercontent.com/tackelua/portctl/main/install.sh | sh
+curl -fsSL https://portctl.githsoft.com/install.sh | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/tackelua/portctl/main/install.ps1 | iex
+irm https://portctl.githsoft.com/install.ps1 | iex
 ```
 
 ### Precompiled Standalone Binaries

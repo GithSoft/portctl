@@ -1,0 +1,254 @@
+---
+// TerminalShowcase.astro - Interactive zero-dependency terminal simulation
+---
+
+<div class="terminal-container not-content">
+  <div class="terminal-window">
+    <div class="terminal-header">
+      <div class="window-controls">
+        <span class="control close"></span>
+        <span class="control minimize"></span>
+        <span class="control maximize"></span>
+        <span class="window-title">sh ~ portctl v2.1.0</span>
+      </div>
+      <div class="command-tabs" role="tablist">
+        <button class="cmd-tab active" data-target="cmd-list" role="tab" aria-selected="true">portctl list</button>
+        <button class="cmd-tab" data-target="cmd-check" role="tab" aria-selected="false">portctl check 3000</button>
+        <button class="cmd-tab" data-target="cmd-kill" role="tab" aria-selected="false">portctl kill 3000</button>
+        <button class="cmd-tab" data-target="cmd-expose" role="tab" aria-selected="false">portctl expose</button>
+        <button class="cmd-tab" data-target="cmd-doctor" role="tab" aria-selected="false">portctl doctor --fix</button>
+      </div>
+    </div>
+
+    <div class="terminal-body">
+      <!-- Tab 1: list -->
+      <div class="cmd-content active" id="cmd-list">
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl list</span></div>
+        <div class="line text-dim">┌──────────────────────┬──────┬──────────┬──────────────┬────────────────────────────┐</div>
+        <div class="line text-bold">│ APPLICATION          │ PORT │ SCOPE    │ STATUS       │ TUNNEL DOMAIN              │</div>
+        <div class="line text-dim">├──────────────────────┼──────┼──────────┼──────────────┼────────────────────────────┤</div>
+        <div class="line">│ <span class="text-cyan">web-frontend</span>         │ 3000 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">frontend.githsoft.com</span>      │</div>
+        <div class="line">│ <span class="text-cyan">auth-service</span>         │ 4001 │ local    │ <span class="badge-active">● ACTIVE</span>     │ -                          │</div>
+        <div class="line">│ <span class="text-cyan">redis-cache</span>          │ 6379 │ internal │ <span class="badge-protect">● PROTECTED</span>  │ -                          │</div>
+        <div class="line">│ <span class="text-cyan">billing-worker</span>       │ 4004 │ local    │ <span class="badge-idle">○ IDLE</span>       │ -                          │</div>
+        <div class="line">│ <span class="text-cyan">api-gateway</span>          │ 8080 │ global   │ <span class="badge-active">● ACTIVE</span>     │ <span class="text-blue">api.githsoft.com</span>           │</div>
+        <div class="line text-dim">└──────────────────────┴──────┴──────────┴──────────────┴────────────────────────────┘</div>
+        <div class="line text-success">✓ 5 services registered | 4 active sockets probed in 2.2ms</div>
+      </div>
+
+      <!-- Tab 2: check -->
+      <div class="cmd-content" id="cmd-check">
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl check 3000</span></div>
+        <div class="line text-dim">🔍 Inspecting TCP Socket :3000...</div>
+        <div class="line text-warning">● Port 3000 is BUSY (Allocated to 'web-frontend')</div>
+        <div class="line">  ├─ <span class="text-dim">PID:</span>        <span class="text-bold">84920</span></div>
+        <div class="line">  ├─ <span class="text-dim">Process:</span>    node (/Users/dev/.nvm/versions/node/v24.22.0/bin/node)</div>
+        <div class="line">  ├─ <span class="text-dim">User:</span>       gith</div>
+        <div class="line">  ├─ <span class="text-dim">Memory:</span>     118.4 MB RSS</div>
+        <div class="line">  └─ <span class="text-dim">Ingress:</span>    <span class="text-blue">https://frontend.githsoft.com</span> (Cloudflare Tunnel)</div>
+      </div>
+
+      <!-- Tab 3: kill -->
+      <div class="cmd-content" id="cmd-kill">
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl kill 3000</span></div>
+        <div class="line">⚡ Identified process 'node' (PID 84920) holding port 3000</div>
+        <div class="line text-cyan">==> Sending SIGTERM (graceful shutdown sequence)...</div>
+        <div class="line text-dim">==> Polling process termination (3s grace period)...</div>
+        <div class="line text-success">==> Process 84920 terminated gracefully. Socket :3000 released!</div>
+        <div class="line text-success">✓ Port 3000 is now free for allocation.</div>
+      </div>
+
+      <!-- Tab 4: expose -->
+      <div class="cmd-content" id="cmd-expose">
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl expose web-frontend -d frontend.githsoft.com</span></div>
+        <div class="line text-cyan">==> Validating RFC 1123 domain syntax: frontend.githsoft.com... <span class="text-success">OK</span></div>
+        <div class="line text-cyan">==> Verifying socket security guardrails (port 3000)... <span class="text-success">OK</span></div>
+        <div class="line text-cyan">==> Checking Cloudflare DNS routing record... <span class="text-success">OK</span></div>
+        <div class="line text-cyan">==> Updating ingress rules in ~/.cloudflared/config.yml... <span class="text-success">OK</span></div>
+        <div class="line text-cyan">==> Reloading cloudflared daemon... <span class="text-success">OK</span></div>
+        <div class="line text-success">✨ Service 'web-frontend' is now LIVE on the Edge!</div>
+        <div class="line">🔗 <span class="text-blue">https://frontend.githsoft.com</span> ➔ <span class="text-dim">http://127.0.0.1:3000</span></div>
+      </div>
+
+      <!-- Tab 5: doctor -->
+      <div class="cmd-content" id="cmd-doctor">
+        <div class="line prompt"><span class="user">$</span> <span class="cmd">portctl doctor --fix</span></div>
+        <div class="line text-dim">🩺 Running portctl diagnostics suite v2.1.0...</div>
+        <div class="line text-success">[PASS] Lockfile integrity (~/.config/portctl/.lock)</div>
+        <div class="line text-success">[PASS] Canonical app registry valid (canonical-apps.json)</div>
+        <div class="line text-warning">[WARN] Dangling ingress route found for removed service 'temp-poc'</div>
+        <div class="line text-warning">[WARN] File permissions on ports.json is 0644 (expected 0600)</div>
+        <div class="line text-cyan">==> [FIX] Purging dangling ingress rule 'temp-poc'... <span class="text-success">DONE</span></div>
+        <div class="line text-cyan">==> [FIX] Updating ~/.config/portctl/ports.json mode to 0600... <span class="text-success">DONE</span></div>
+        <div class="line text-success">✓ System health 100% OPERATIONAL. Zero collisions detected.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.terminal-container {
+  margin: 2rem 0;
+  width: 100%;
+}
+
+.terminal-window {
+  border-radius: 12px;
+  background: #07090e;
+  border: 1px solid #1a202c;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: #0d111a;
+  border-bottom: 1px solid #1a202c;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.control {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.close { background: #ef4444; }
+.minimize { background: #f59e0b; }
+.maximize { background: #10b981; }
+
+.window-title {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+}
+
+.command-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.cmd-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cmd-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+}
+
+.cmd-tab.active {
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  border-color: rgba(0, 229, 255, 0.3);
+  font-weight: 600;
+}
+
+.terminal-body {
+  padding: 1.25rem;
+  font-family: 'JetBrains Mono', 'Geist Mono', ui-monospace, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #f1f5f9;
+  min-height: 260px;
+  overflow-x: auto;
+}
+
+.cmd-content {
+  display: none;
+}
+
+.cmd-content.active {
+  display: block;
+}
+
+.line {
+  white-space: pre;
+}
+
+.prompt {
+  margin-bottom: 0.75rem;
+}
+
+.user {
+  color: #10b981;
+  font-weight: bold;
+}
+
+.cmd {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.text-dim { color: #64748b; }
+.text-cyan { color: #00e5ff; }
+.text-blue { color: #38bdf8; text-decoration: underline; }
+.text-success { color: #34d399; }
+.text-warning { color: #fbbf24; }
+.text-bold { font-weight: 700; color: #f8fafc; }
+
+.badge-active {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.badge-protect {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.badge-idle {
+  color: #94a3b8;
+}
+</style>
+
+<script>
+  function setupTerminalTabs() {
+    const tabs = document.querySelectorAll('.cmd-tab');
+    const contents = document.querySelectorAll('.cmd-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetId = tab.getAttribute('data-target');
+        
+        tabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        contents.forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        if (targetId) {
+          const target = document.getElementById(targetId);
+          if (target) target.classList.add('active');
+        }
+      });
+    });
+  }
+
+  // Run on first load and view transitions
+  setupTerminalTabs();
+  document.addEventListener('astro:page-load', setupTerminalTabs);
+</script>

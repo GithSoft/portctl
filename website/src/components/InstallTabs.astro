@@ -1,0 +1,186 @@
+---
+// InstallTabs.astro - Multi-platform 1-click install command box
+---
+
+<div class="install-container not-content">
+  <div class="install-box">
+    <div class="install-tabs">
+      <button class="platform-tab active" data-platform="posix">macOS / Linux</button>
+      <button class="platform-tab" data-platform="windows">Windows</button>
+      <button class="platform-tab" data-platform="cargo">Cargo</button>
+      <button class="platform-tab" data-platform="brew">Homebrew</button>
+    </div>
+
+    <div class="install-content">
+      <div class="platform-cmd active" id="cmd-posix">
+        <span class="cmd-text">curl -fsSL https://portctl.githsoft.com/install.sh | sh</span>
+        <button class="copy-btn" data-clipboard="curl -fsSL https://portctl.githsoft.com/install.sh | sh" title="Copy to clipboard">
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+
+      <div class="platform-cmd" id="cmd-windows">
+        <span class="cmd-text">irm https://portctl.githsoft.com/install.ps1 | iex</span>
+        <button class="copy-btn" data-clipboard="irm https://portctl.githsoft.com/install.ps1 | iex" title="Copy to clipboard">
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+
+      <div class="platform-cmd" id="cmd-cargo">
+        <span class="cmd-text">cargo install portctl-cli</span>
+        <button class="copy-btn" data-clipboard="cargo install portctl-cli" title="Copy to clipboard">
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+
+      <div class="platform-cmd" id="cmd-brew">
+        <span class="cmd-text">brew install tackelua/tap/portctl</span>
+        <button class="copy-btn" data-clipboard="brew install tackelua/tap/portctl" title="Copy to clipboard">
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.install-container {
+  margin: 1.5rem 0 2.5rem 0;
+  max-width: 44rem;
+}
+
+.install-box {
+  background: #090c13;
+  border: 1px solid #1a2233;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.install-tabs {
+  display: flex;
+  background: #0e131f;
+  border-bottom: 1px solid #1a2233;
+  padding: 0.25rem 0.5rem 0;
+  gap: 0.25rem;
+}
+
+.platform-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.platform-tab:hover {
+  color: #f1f5f9;
+}
+
+.platform-tab.active {
+  color: #00e5ff;
+  border-bottom-color: #00e5ff;
+  font-weight: 600;
+}
+
+.install-content {
+  padding: 0.85rem 1rem;
+}
+
+.platform-cmd {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9rem;
+}
+
+.platform-cmd.active {
+  display: flex;
+}
+
+.cmd-text {
+  color: #f8fafc;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #141b2a;
+  border: 1px solid #243048;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover {
+  background: #1c263c;
+  color: #f8fafc;
+  border-color: #38bdf8;
+}
+
+.copy-btn.copied {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #34d399;
+}
+</style>
+
+<script>
+  function setupInstallTabs() {
+    const tabs = document.querySelectorAll('.platform-tab');
+    const cmds = document.querySelectorAll('.platform-cmd');
+    const copyBtns = document.querySelectorAll('.copy-btn');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const platform = tab.getAttribute('data-platform');
+        tabs.forEach(t => t.classList.remove('active'));
+        cmds.forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        const targetCmd = document.getElementById(`cmd-${platform}`);
+        if (targetCmd) targetCmd.classList.add('active');
+      });
+    });
+
+    copyBtns.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const text = btn.getAttribute('data-clipboard');
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const label = btn.querySelector('.copy-label');
+          if (label) label.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            if (label) label.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 2000);
+        } catch (e) {
+          console.error('Failed to copy', e);
+        }
+      });
+    });
+  }
+
+  setupInstallTabs();
+  document.addEventListener('astro:page-load', setupInstallTabs);
+</script>

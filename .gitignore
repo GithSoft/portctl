@@ -6,3 +6,9 @@
 ports.json
 registry/machines/node-*.json
 !registry/machines/node-example.json
+
+# Website build & dependencies
+website/node_modules/
+website/dist/
+website/.astro/
+website/.wrangler/

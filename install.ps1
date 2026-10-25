@@ -1,7 +1,10 @@
 # portctl Windows standalone installer
 # https://github.com/tackelua/portctl
+# https://portctl.githsoft.com
 #
 # Usage (PowerShell):
+#   irm https://portctl.githsoft.com/install.ps1 | iex
+#   or:
 #   irm https://raw.githubusercontent.com/tackelua/portctl/main/install.ps1 | iex
 #
 $ErrorActionPreference = "Stop"

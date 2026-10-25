@@ -1,0 +1,89 @@
+---
+title: The Local Network Control Plane & Ingress Engine
+description: Zero-daemon, sub-millisecond port manager and automated Cloudflare Tunnel ingress CLI written in pure Rust.
+template: splash
+hero:
+  tagline: Never debug an EADDRINUSE crash again. Allocate deterministic ports, audit listening sockets, gracefully kill zombie processes, and connect local servers to the Edge in a single command.
+  actions:
+    - text: Get Started
+      link: /getting-started/quickstart/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/tackelua/portctl
+      icon: external
+      variant: minimal
+---
+
+import TerminalShowcase from '../../components/TerminalShowcase.astro';
+import InstallTabs from '../../components/InstallTabs.astro';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<InstallTabs />
+
+## Interactive Showcase
+
+Select a command to preview how `portctl` inspects sockets, executes graceful process termination, and configures Cloudflare edge ingress:
+
+<TerminalShowcase />
+
+---
+
+## Core Pillars
+
+<CardGrid>
+  <Card title="⚡ Sub-Millisecond Speed" icon="rocket">
+    Written in pure Rust with zero daemon overhead and zero runtime dependencies. Queries complete in **< 3ms** with sub-megabyte memory footprint.
+  </Card>
+
+  <Card title="🛡️ POSIX Advisory Locking" icon="seti:lock">
+    Atomic writes and `fd-lock` file advisory locks eliminate race conditions across concurrent terminal sessions. Strict `0600` permissions and built-in protection against exposing sensitive ports (`22`, `5432`, `6379`).
+  </Card>
+
+  <Card title="🧠 Polyglot Auto-Detection" icon="laptop">
+    Automatically identifies project names from `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `pom.xml`, `composer.json`, or Git remotes without manual naming.
+  </Card>
+
+  <Card title="🌐 Automated Edge Ingress" icon="seti:cloudflare">
+    1-click Cloudflare Tunnel automation. Validates ingress syntax, configures DNS routing, and updates daemons with zero YAML wrangling.
+  </Card>
+</CardGrid>
+
+---
+
+## Performance Benchmarks
+
+Execution latency comparison for resolving and probing local socket allocations:
+
+| Tool | Runtime | Architecture | Average Latency | Daemon RAM |
+| :--- | :--- | :--- | :--- | :--- |
+| **`portctl` (Rust)** | **Native Binary** | **Zero-Daemon** | **< 2.4 ms** | **0 MB** |
+| Custom Bash / `lsof` Script | Shell `/bin/bash` | Child Processes | ~18.5 ms | 0 MB |
+| Legacy Node.js CLI | V8 / Node.js | JIT Runtime | ~165 ms | ~45 MB |
+| Desktop Container Apps | Electron / Hypervisor | Background Daemon | > 500 ms | > 2,000 MB |
+
+---
+
+## Explore Documentation
+
+<CardGrid>
+  <LinkCard
+    title="3-Step Quickstart"
+    description="Learn how to run servers with auto-injected $PORT and zero configuration."
+    href="/getting-started/quickstart/"
+  />
+  <LinkCard
+    title="Cloudflare Tunnel Guide"
+    description="Automate public HTTPS endpoints for local webhooks and mobile testing."
+    href="/guides/cloudflare-tunnel/"
+  />
+  <LinkCard
+    title="Process Hunter"
+    description="Progressive SIGTERM to SIGKILL socket reclamation with system guardrails."
+    href="/guides/process-hunter/"
+  />
+  <LinkCard
+    title="AI Coding Agents & MCP"
+    description="Integrate portctl stdio JSON-RPC server with Claude Code, Cursor, and OpenClaw."
+    href="/guides/ai-agent-mcp/"
+  />
+</CardGrid>
