@@ -24,13 +24,36 @@ It prevents port collisions across microservices, eliminates hardcoded port numb
 
 ## 🚀 Installation
 
-### Using Cargo (Recommended)
+### 1-Line Standalone Installer (Recommended)
+
+No Rust toolchain or package manager required! Automatically detects your OS and architecture, downloads the verified binary, and installs to your PATH:
 
 ```bash
-cargo install --git https://github.com/tackelua/portctl
+# macOS & Linux (curl | sh)
+curl -fsSL https://raw.githubusercontent.com/tackelua/portctl/main/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/tackelua/portctl/main/install.ps1 | iex
 ```
 
-### From Source
+### Precompiled Standalone Binaries
+
+Download single-file standalone executables directly from the [Latest Release](https://github.com/tackelua/portctl/releases/latest):
+
+| Platform | Direct Standalone Binary | Archives & Checksums |
+| :--- | :--- | :--- |
+| **macOS Apple Silicon (M-series)** | [`portctl-darwin-arm64`](https://github.com/tackelua/portctl/releases/latest/download/portctl-darwin-arm64) | [View on GitHub Releases](https://github.com/tackelua/portctl/releases/latest) |
+| **macOS Intel (x86_64)** | [`portctl-darwin-x86_64`](https://github.com/tackelua/portctl/releases/latest/download/portctl-darwin-x86_64) | [View on GitHub Releases](https://github.com/tackelua/portctl/releases/latest) |
+| **Linux (x86_64 glibc)** | [`portctl-linux-x86_64`](https://github.com/tackelua/portctl/releases/latest/download/portctl-linux-x86_64) | [View on GitHub Releases](https://github.com/tackelua/portctl/releases/latest) |
+| **Windows (x86_64)** | [`portctl-windows-x86_64.exe`](https://github.com/tackelua/portctl/releases/latest/download/portctl-windows-x86_64.exe) | [View on GitHub Releases](https://github.com/tackelua/portctl/releases/latest) |
+
+### Using Cargo
+
+```bash
+cargo install portctl-cli
+```
+
+### Build From Source
 
 ```bash
 git clone https://github.com/tackelua/portctl.git
