@@ -29,7 +29,7 @@ serde_yaml = "0.9"
 dirs = "5.0"
 regex = "1.10"
 colored = "2.1"
-comfy-table = "7.1"
+comfy-table = "8.0"
 tempfile = "3.10"
 
 [dev-dependencies]
