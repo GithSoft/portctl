@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use crate::constants::{get_portctl_config_dir, get_registry_dir, get_tunnel_config_path};
+use crate::constants::get_tunnel_config_path;
+#[cfg(unix)]
+use crate::constants::{get_portctl_config_dir, get_registry_dir};
 use crate::probe::probe_port;
 use crate::registry::PortRegistry;
 
@@ -74,69 +77,71 @@ impl<'a> DoctorEngine<'a> {
         }
     }
 
+    #[cfg(unix)]
     fn check_permissions(&self, issues: &mut Vec<DiagnosticIssue>, auto_fix: bool) {
-        #[cfg(unix)]
-        {
-            let config_dir = get_portctl_config_dir();
-            if config_dir.exists() {
-                if let Ok(meta) = fs::metadata(&config_dir) {
-                    let mode = meta.permissions().mode() & 0o777;
-                    if mode != 0o700 {
-                        let mut fixed = false;
-                        if auto_fix {
-                            let _ =
-                                fs::set_permissions(&config_dir, fs::Permissions::from_mode(0o700));
-                            fixed = true;
-                        }
-                        issues.push(DiagnosticIssue {
-                            category: "Permissions".to_string(),
-                            severity: "WARNING".to_string(),
-                            description: format!(
-                                "Directory {:?} permissions are 0{:o} (recommended: 0700).",
-                                config_dir, mode
-                            ),
-                            fixable: true,
-                            fixed,
-                        });
+        let config_dir = get_portctl_config_dir();
+        if config_dir.exists() {
+            if let Ok(meta) = fs::metadata(&config_dir) {
+                let mode = meta.permissions().mode() & 0o777;
+                if mode != 0o700 {
+                    let mut fixed = false;
+                    if auto_fix {
+                        let _ = fs::set_permissions(&config_dir, fs::Permissions::from_mode(0o700));
+                        fixed = true;
                     }
+                    issues.push(DiagnosticIssue {
+                        category: "Permissions".to_string(),
+                        severity: "WARNING".to_string(),
+                        description: format!(
+                            "Directory {:?} permissions are 0{:o} (recommended: 0700).",
+                            config_dir, mode
+                        ),
+                        fixable: true,
+                        fixed,
+                    });
                 }
             }
+        }
 
-            let registry_dir = get_registry_dir();
-            if registry_dir.exists() {
-                if let Ok(entries) = fs::read_dir(&registry_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_file() {
-                            if let Ok(meta) = fs::metadata(&path) {
-                                let mode = meta.permissions().mode() & 0o777;
-                                if mode != 0o600 {
-                                    let mut fixed = false;
-                                    if auto_fix {
-                                        let _ = fs::set_permissions(
-                                            &path,
-                                            fs::Permissions::from_mode(0o600),
-                                        );
-                                        fixed = true;
-                                    }
-                                    issues.push(DiagnosticIssue {
-                                        category: "Permissions".to_string(),
-                                        severity: "WARNING".to_string(),
-                                        description: format!(
-                                            "File {:?} permissions are 0{:o} (recommended: 0600).",
-                                            path.file_name().unwrap_or_default(),
-                                            mode
-                                        ),
-                                        fixable: true,
-                                        fixed,
-                                    });
+        let registry_dir = get_registry_dir();
+        if registry_dir.exists() {
+            if let Ok(entries) = fs::read_dir(&registry_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Ok(meta) = fs::metadata(&path) {
+                            let mode = meta.permissions().mode() & 0o777;
+                            if mode != 0o600 {
+                                let mut fixed = false;
+                                if auto_fix {
+                                    let _ = fs::set_permissions(
+                                        &path,
+                                        fs::Permissions::from_mode(0o600),
+                                    );
+                                    fixed = true;
                                 }
+                                issues.push(DiagnosticIssue {
+                                    category: "Permissions".to_string(),
+                                    severity: "WARNING".to_string(),
+                                    description: format!(
+                                        "File {:?} permissions are 0{:o} (recommended: 0600).",
+                                        path.file_name().unwrap_or_default(),
+                                        mode
+                                    ),
+                                    fixable: true,
+                                    fixed,
+                                });
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    #[cfg(not(unix))]
+    fn check_permissions(&self, _issues: &mut Vec<DiagnosticIssue>, _auto_fix: bool) {
+        // POSIX permission modes are not applicable on Windows
     }
 
     fn check_rogue_ports(&self, issues: &mut Vec<DiagnosticIssue>) {

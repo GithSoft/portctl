@@ -1,4 +1,6 @@
+#[cfg(unix)]
 use std::thread;
+#[cfg(unix)]
 use std::time::{Duration, Instant};
 
 use crate::constants::get_sensitive_ports;
@@ -208,7 +210,7 @@ fn terminate_process(
 ) -> Result<KillResult, String> {
     use std::process::Command;
 
-    let output = Command::new("taskkill")
+    let _output = Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/F"])
         .output()
         .map_err(|e| format!("Failed to execute taskkill: {}", e))?;
