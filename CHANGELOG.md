@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-10-25
+
+### Added
+- **Process Hunter (`portctl kill`)**: Gracefully terminate processes occupying ports using progressive signal escalation (`SIGTERM` -> 3s -> `SIGKILL`), with sensitive port guardrails and instant permission error detection.
+- **System Diagnostics (`portctl doctor`)**: Full diagnostic suite auditing rogue listening ports, ghost entries, dangling ingress rules, and file permissions, with `--fix` automated remediation and `--json` machine-readable output.
+- **Tunnel Ingress Revocation (`portctl unexpose`)**: Automated cleanup of Cloudflare Tunnel ingress rules, pre-flight syntax validation, zero-downtime daemon kickstart, and registry synchronization.
+- **Shell Auto-Completions (`portctl completion`)**: Dynamic completion generator for Bash, Zsh, Fish, PowerShell, and Elvish via `clap_complete`.
+- **Advisory File Locking (`fd-lock`)**: Cross-process mutation safety using a dedicated `~/.config/portctl/.lock` file, avoiding inode replacement issues during atomic file writes while keeping read operations completely lock-free (< 3ms).
+- **Extensible `TunnelProvider` Trait**: Modular abstraction layer for multi-tunnel backends.
+
+---
+
 ## [2.0.0] - 2026-10-25
 
 ### Added

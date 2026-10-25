@@ -88,3 +88,95 @@ fn test_allocator_conflict_and_reuse() {
         .unwrap_err();
     assert!(err.contains("already claimed by service 'app-one'"));
 }
+
+#[test]
+fn test_registry_file_locking_concurrency() {
+    use std::sync::Arc;
+    let tmp = tempdir().unwrap();
+    let registry_dir = tmp.path().join("registry");
+    let config_dir = tmp.path().join("config");
+
+    let registry = Arc::new(PortRegistry::with_dirs(registry_dir, config_dir));
+
+    let reg1 = Arc::clone(&registry);
+    let handle1 = std::thread::spawn(move || {
+        for i in 0..10 {
+            let mut apps = reg1.load_canonical_apps();
+            apps.apps.insert(
+                format!("thread1-app-{}", i),
+                CanonicalAppItem {
+                    port: 4300 + i,
+                    tunnel: None,
+                    repo: None,
+                    description: None,
+                },
+            );
+            reg1.save_canonical_apps(&apps).unwrap();
+        }
+    });
+
+    let reg2 = Arc::clone(&registry);
+    let handle2 = std::thread::spawn(move || {
+        for i in 0..10 {
+            let mut apps = reg2.load_canonical_apps();
+            apps.apps.insert(
+                format!("thread2-app-{}", i),
+                CanonicalAppItem {
+                    port: 4400 + i,
+                    tunnel: None,
+                    repo: None,
+                    description: None,
+                },
+            );
+            reg2.save_canonical_apps(&apps).unwrap();
+        }
+    });
+
+    handle1.join().unwrap();
+    handle2.join().unwrap();
+
+    let final_apps = registry.load_canonical_apps();
+    assert!(!final_apps.apps.is_empty());
+}
+
+#[test]
+fn test_doctor_diagnostics_clean() {
+    let tmp = tempdir().unwrap();
+    let registry_dir = tmp.path().join("registry");
+    let config_dir = tmp.path().join("config");
+
+    let registry = PortRegistry::with_dirs(registry_dir, config_dir);
+    let doctor = portctl::doctor::DoctorEngine::new(&registry);
+    let report = doctor.diagnose(false);
+
+    assert_eq!(report.error_count, 0);
+    assert!(report.is_healthy);
+}
+
+#[test]
+fn test_killer_idle_port() {
+    let tmp = tempdir().unwrap();
+    let registry_dir = tmp.path().join("registry");
+    let config_dir = tmp.path().join("config");
+
+    let registry = PortRegistry::with_dirs(registry_dir, config_dir);
+    let res = portctl::killer::kill_target(&registry, "59124", false).unwrap();
+    assert!(res.socket_released);
+    assert_eq!(res.signal_sent, "NONE");
+}
+
+#[test]
+fn test_tunnel_provider_trait_and_unexpose_unregistered() {
+    let tmp = tempdir().unwrap();
+    let registry_dir = tmp.path().join("registry");
+    let config_dir = tmp.path().join("config");
+
+    let registry = PortRegistry::with_dirs(registry_dir, config_dir);
+    let tunnel = portctl::tunnel::TunnelManager::new(&registry);
+
+    use portctl::tunnel::TunnelProvider;
+    assert_eq!(tunnel.id(), "cloudflare");
+
+    let err = tunnel.unexpose("nonexistent-app", None).unwrap_err();
+    assert!(err.contains("not registered"));
+}

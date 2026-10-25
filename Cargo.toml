@@ -1,6 +1,6 @@
 [package]
 name = "portctl-cli"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 rust-version = "1.75.0"
 authors = ["tackelua <tackelua@gmail.com>"]
@@ -23,6 +23,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "cargo"] }
+clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
@@ -31,6 +32,9 @@ regex = "1.10"
 colored = "3.1"
 comfy-table = "8.0"
 tempfile = "3.10"
+fd-lock = "4.0"
+sysinfo = "0.30"
+libc = "0.2"
 
 [dev-dependencies]
 assert_cmd = "2.0"

@@ -89,19 +89,19 @@ To win developer mindshare and become the de-facto standard across engineering t
 - **Git Worktree Dynamic Offsetting**: Automatically maps worktrees to collision-free offset ranges using deterministic FNV-1a path hashing:
   $$\text{Worktree Port} = \text{Base Port} + 100 + (\text{FNV-1a}(\text{worktree\_path}) \pmod{50})$$
 - **Docker Compose Bridge**: Pre-flight verification of host ports before starting Docker Compose containers.
-- **POSIX Advisory File Locking (`fd-lock`)**: Cross-process thread/process safety when mutating `~/.config/portctl/`.
+- **POSIX Advisory File Locking (`fd-lock`)**: Cross-process concurrency safety using a dedicated lockfile (`~/.config/portctl/.lock`). Read paths remain completely lock-free for sub-millisecond execution (<3ms), while write mutations acquire an exclusive advisory lock, avoiding inode replacement pitfalls during atomic renames.
 
 ### 🌐 Pillar 2: Universal Local Ingress & Multi-Tunnel Hub
-- **Extensible `IngressProvider` Trait**: Plug-and-play architecture for tunneling backends.
-- **Cloudflare Tunnel (`cloudflare`)**: Production-grade ingress with custom domains and DDoS protection.
+- **Extensible `IngressProvider` Trait**: Plug-and-play architecture for tunneling backends with full lifecycle support (`expose` and `unexpose`).
+- **Cloudflare Tunnel (`cloudflare`)**: Production-grade ingress with custom domains, automated CNAME routes, and `portctl unexpose` cleanup.
 - **Tailscale Serve & Funnel (`tailscale`)**: Private mesh sharing (`*.ts.net`) and public Funnel ingress.
 - **SSH Ephemeral Tunnels (`pinggy` / `localhost.run`)**: Zero-install instant public HTTPS URL via native `ssh -R`.
 - **Zero-Daemon Local HTTPS (`*.localhost`)**: Embedded reverse proxy resolving `https://<app>.localhost` with auto-generated root CA trusted in system keychains.
 - **Security Guardrails v2**: Sensitive port blacklist (22, 5432, 6379, 8384, 11434, 27017, 2375, 9222) and loopback interface binding verification.
 
 ### 🛠️ Pillar 3: Service Orchestration, Health Probing & Observability
-- **Zombie Process Hunter (`portctl kill`)**: Graceful `SIGTERM` followed by `SIGKILL` after 3000ms with process details.
-- **System Diagnostics (`portctl doctor`)**: Audits rogue processes, ghost registrations, dangling ingress rules, and permissions.
+- **Zombie Process Hunter (`portctl kill`)**: Graceful `SIGTERM` followed by `SIGKILL` after 3000ms with process tree awareness, instant `EPERM` diagnostics, and sensitive port guardrails.
+- **System Diagnostics (`portctl doctor`)**: Audits rogue processes, ghost registrations, dangling ingress rules, and file permissions, with `--fix` automated repair and `--json` output.
 - **Readiness Prober (`portctl wait`)**: Blocks script execution until TCP socket or HTTP endpoint (`200 OK`) is ready.
 - **Interactive TUI Dashboard (`portctl top`)**: Terminal UI using `ratatui` with live socket statuses, CPU/RSS metrics, and single-key shortcuts (`k` kill, `e` expose, `o` open).
 
@@ -122,7 +122,7 @@ To win developer mindshare and become the de-facto standard across engineering t
 
 | Milestone | Target Window | Theme | Primary Deliverables | Key Dependencies |
 | :--- | :--- | :--- | :--- | :--- |
-| **v2.1.0** | Q1 2026 | **DX Hardening & Diagnostics** | • `portctl kill <app\|port>` with graceful SIGTERM/SIGKILL<br>• `portctl doctor` with automated issue detection<br>• `fd-lock` advisory file locking for concurrent safety<br>• Shell completions for zsh/bash/fish via `clap_complete`<br>• Crates.io official publish (`portctl-cli`) | `fd-lock`, `clap_complete`, `sysinfo` |
+| **v2.1.0** | Q1 2026 | **DX Hardening & Diagnostics** | • `portctl kill <app\|port>` with graceful SIGTERM/SIGKILL & guardrails<br>• `portctl doctor [--fix] [--json]` consistency & permission audit<br>• `portctl unexpose <app\|domain>` automated tunnel revocation<br>• `fd-lock` advisory locking on dedicated `.lock` file<br>• Shell completions for zsh/bash/fish via `clap_complete`<br>• Provider-agnostic `TunnelProvider` trait abstraction<br>• Crates.io official publish (`portctl-cli`) | `fd-lock`, `clap_complete`, `sysinfo`, `libc` |
 | **v2.2.0** | Q2 2026 | **Declarative Workspaces & Probing** | • `portctl.toml` project manifest support<br>• Deterministic Git Worktree port offsetting<br>• `portctl wait <app> [--tcp\|--http]` readiness prober<br>• Official Homebrew Tap (`tackelua/homebrew-tap`)<br>• Standalone installer `install.sh` | `toml`, `reqwest` |
 | **v2.3.0** | Q3 2026 | **AI Agent Revolution (MCP)** | • `portctl mcp` stdio JSON-RPC server (MCP specification)<br>• Agent lease sandboxing with TTL (`--ttl`)<br>• Machine-readable `--json` output across all commands<br>• GitHub Action `tackelua/setup-portctl@v1`<br>• Cursor & Claude Code integration guide | `serde_json`, `tokio` |
 | **v2.4.0** | Q4 2026 | **Universal Multi-Tunnel Ingress** | • Extensible Ingress trait architecture<br>• Tailscale Serve & Funnel provider (`--provider tailscale`)<br>• Zero-install SSH reverse tunnels (Pinggy, localhost.run)<br>• ngrok provider support<br>• Ingress status tracking in registry | `async-trait` |

@@ -10,13 +10,24 @@ use crate::constants::{
 };
 use crate::registry::PortRegistry;
 
+#[derive(Debug, Clone)]
 pub struct ExposeResult {
     pub url: String,
     pub port: u16,
 }
 
-pub struct TunnelManager<'a> {
-    registry: &'a PortRegistry,
+#[derive(Debug, Clone)]
+pub struct UnexposeResult {
+    pub app_name: String,
+    pub domain: Option<String>,
+    pub port: u16,
+    pub rules_removed: usize,
+}
+
+pub trait TunnelProvider {
+    fn id(&self) -> &'static str;
+    fn expose(&self, app_name: &str, domain: &str, force: bool) -> Result<ExposeResult, String>;
+    fn unexpose(&self, app_name: &str, domain_opt: Option<&str>) -> Result<UnexposeResult, String>;
 }
 
 pub fn is_valid_rfc1123_domain(domain: &str) -> bool {
@@ -35,6 +46,10 @@ pub fn is_valid_rfc1123_domain(domain: &str) -> bool {
         }
     }
     true
+}
+
+pub struct TunnelManager<'a> {
+    registry: &'a PortRegistry,
 }
 
 impl<'a> TunnelManager<'a> {
@@ -101,71 +116,97 @@ impl<'a> TunnelManager<'a> {
             .to_string();
 
         let ingress_key = Value::String("ingress".to_string());
-        let ingress_val = root_map
-            .entry(ingress_key)
-            .or_insert_with(|| Value::Sequence(Vec::new()));
+        if !root_map.contains_key(&ingress_key) {
+            root_map.insert(ingress_key.clone(), Value::Sequence(Vec::new()));
+        }
 
-        let ingress_seq = ingress_val
-            .as_sequence_mut()
-            .ok_or_else(|| "'ingress' in tunnel config must be a list".to_string())?;
+        let ingress_seq = root_map
+            .get_mut(&ingress_key)
+            .and_then(|v| v.as_sequence_mut())
+            .ok_or_else(|| "'ingress' in tunnel config must be a YAML sequence".to_string())?;
 
-        // Filter out existing rule for this domain
-        ingress_seq.retain(|item| {
-            if let Some(map) = item.as_mapping() {
-                if let Some(host) = map
+        // Format target service URL
+        let service_url = format!("http://localhost:{}", port);
+
+        // Check if rule already exists
+        let mut found = false;
+        for rule in ingress_seq.iter_mut() {
+            if let Some(map) = rule.as_mapping_mut() {
+                if let Some(h) = map
                     .get(Value::String("hostname".to_string()))
-                    .and_then(|h| h.as_str())
+                    .and_then(|v| v.as_str())
                 {
-                    return host != domain;
+                    if h == domain {
+                        map.insert(
+                            Value::String("service".to_string()),
+                            Value::String(service_url.clone()),
+                        );
+                        found = true;
+                        break;
+                    }
                 }
             }
-            true
-        });
+        }
 
-        // Create new ingress rule
-        let mut new_rule_map = Mapping::new();
-        new_rule_map.insert(
-            Value::String("hostname".to_string()),
-            Value::String(domain.to_string()),
-        );
-        new_rule_map.insert(
-            Value::String("service".to_string()),
-            Value::String(format!("http://localhost:{}", port)),
-        );
-        let new_rule = Value::Mapping(new_rule_map);
+        if !found {
+            let mut new_rule = Mapping::new();
+            new_rule.insert(
+                Value::String("hostname".to_string()),
+                Value::String(domain.to_string()),
+            );
+            new_rule.insert(
+                Value::String("service".to_string()),
+                Value::String(service_url),
+            );
 
-        // Find catch-all index
-        let catch_all_idx = ingress_seq.iter().position(|item| {
-            if let Some(map) = item.as_mapping() {
-                let has_host = map.contains_key(Value::String("hostname".to_string()));
-                let has_service = map.contains_key(Value::String("service".to_string()));
-                return !has_host && has_service;
+            // Insert before catch-all 404 rule if present
+            if let Some(last_pos) = ingress_seq.iter().rposition(|r| {
+                if let Some(map) = r.as_mapping() {
+                    if let Some(s) = map
+                        .get(Value::String("service".to_string()))
+                        .and_then(|v| v.as_str())
+                    {
+                        return s.contains("404");
+                    }
+                }
+                false
+            }) {
+                ingress_seq.insert(last_pos, Value::Mapping(new_rule));
+            } else {
+                ingress_seq.push(Value::Mapping(new_rule));
+            }
+        }
+
+        // Ensure catch-all 404 rule exists at the end
+        let has_404 = ingress_seq.iter().any(|r| {
+            if let Some(map) = r.as_mapping() {
+                if let Some(s) = map
+                    .get(Value::String("service".to_string()))
+                    .and_then(|v| v.as_str())
+                {
+                    return s.contains("404");
+                }
             }
             false
         });
 
-        if let Some(idx) = catch_all_idx {
-            ingress_seq.insert(idx, new_rule);
-        } else {
-            ingress_seq.push(new_rule);
-            let mut catch_all_map = Mapping::new();
-            catch_all_map.insert(
+        if !has_404 {
+            let mut catch_all = Mapping::new();
+            catch_all.insert(
                 Value::String("service".to_string()),
                 Value::String("http_status:404".to_string()),
             );
-            ingress_seq.push(Value::Mapping(catch_all_map));
+            ingress_seq.push(Value::Mapping(catch_all));
         }
 
-        let updated_yaml =
-            serde_yaml::to_string(&doc).map_err(|e| format!("Failed to serialize YAML: {}", e))?;
+        let updated_yaml = serde_yaml::to_string(&doc)
+            .map_err(|e| format!("Failed to serialize updated tunnel YAML: {}", e))?;
 
-        // 5. Temporary file validation (CWE-377 mitigation)
-        let parent = tunnel_config_path
-            .parent()
-            .unwrap_or_else(|| Path::new("."));
+        // 5. Pre-flight Sandboxed Ingress Validation
         let mut temp_file = tempfile::Builder::new()
-            .prefix(".tunnel-validate-")
-            .tempfile_in(parent)
+            .prefix(".cloudflared-validate-")
+            .suffix(".yml")
+            .tempfile()
             .map_err(|e| format!("Failed to create temporary validation file: {}", e))?;
 
         #[cfg(unix)]
@@ -176,27 +217,26 @@ impl<'a> TunnelManager<'a> {
 
         temp_file
             .write_all(updated_yaml.as_bytes())
-            .map_err(|e| format!("Failed to write validation YAML: {}", e))?;
+            .map_err(|e| format!("Failed to write to validation file: {}", e))?;
         temp_file
             .flush()
-            .map_err(|e| format!("Failed to flush validation YAML: {}", e))?;
+            .map_err(|e| format!("Failed to flush validation file: {}", e))?;
 
-        // Validate with cloudflared
-        let val_status = Command::new("cloudflared")
+        let validate_status = Command::new("cloudflared")
             .args([
                 "tunnel",
                 "--config",
-                temp_file.path().to_str().unwrap(),
+                temp_file.path().to_str().unwrap_or_default(),
                 "ingress",
                 "validate",
             ])
             .output();
 
-        match val_status {
+        match validate_status {
             Ok(output) if !output.status.success() => {
                 let err_msg = String::from_utf8_lossy(&output.stderr);
                 return Err(format!(
-                    "Cloudflare ingress validation failed:\n{}",
+                    "Pre-flight ingress validation failed with error:\n{}",
                     err_msg
                 ));
             }
@@ -213,11 +253,11 @@ impl<'a> TunnelManager<'a> {
         fs::write(&tunnel_config_path, &updated_yaml)
             .map_err(|e| format!("Failed to write updated tunnel config: {}", e))?;
 
-        // Copy to /etc/cloudflared/config.yml if appropriate
+        // Copy to system config if appropriate
         let system_config = get_system_tunnel_config_path();
         if Path::new(system_config).exists() {
             let _ = Command::new("sudo")
-                .args(["cp", tunnel_config_path.to_str().unwrap(), system_config])
+                .args(["cp", &tunnel_config_path.to_string_lossy(), system_config])
                 .output();
         }
 
@@ -256,5 +296,187 @@ impl<'a> TunnelManager<'a> {
             url: format!("https://{}", domain),
             port,
         })
+    }
+
+    pub fn unexpose(
+        &self,
+        app_name: &str,
+        domain_opt: Option<&str>,
+    ) -> Result<UnexposeResult, String> {
+        let entry = self.registry.find_by_name(app_name).ok_or_else(|| {
+            format!(
+                "Application '{}' is not registered in portctl registry.",
+                app_name
+            )
+        })?;
+
+        let port = entry.port;
+        let service_url = format!("http://localhost:{}", port);
+        let target_domain = domain_opt.or(entry.tunnel.as_deref());
+
+        let tunnel_config_path = get_tunnel_config_path();
+        if !tunnel_config_path.exists() {
+            return Err(format!(
+                "Cloudflare Tunnel config file not found at: {:?}",
+                tunnel_config_path
+            ));
+        }
+
+        let raw_yaml = fs::read_to_string(&tunnel_config_path)
+            .map_err(|e| format!("Failed to read tunnel config: {}", e))?;
+
+        let mut doc: Value =
+            serde_yaml::from_str(&raw_yaml).map_err(|e| format!("Failed to parse YAML: {}", e))?;
+
+        let root_map = doc
+            .as_mapping_mut()
+            .ok_or_else(|| "Tunnel config root must be a YAML mapping".to_string())?;
+
+        let ingress_key = Value::String("ingress".to_string());
+        let ingress_seq = root_map
+            .get_mut(&ingress_key)
+            .and_then(|v| v.as_sequence_mut())
+            .ok_or_else(|| "No ingress configuration found in tunnel config".to_string())?;
+
+        let initial_len = ingress_seq.len();
+
+        // Retain rules that do NOT match target service or target domain
+        ingress_seq.retain(|rule| {
+            if let Some(map) = rule.as_mapping() {
+                // Never remove 404 rule
+                if let Some(s) = map
+                    .get(Value::String("service".to_string()))
+                    .and_then(|v| v.as_str())
+                {
+                    if s.contains("404") {
+                        return true;
+                    }
+                    if s == service_url {
+                        return false;
+                    }
+                }
+                if let Some(d) = target_domain {
+                    if let Some(h) = map
+                        .get(Value::String("hostname".to_string()))
+                        .and_then(|v| v.as_str())
+                    {
+                        if h == d {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        });
+
+        let removed = initial_len - ingress_seq.len();
+
+        let updated_yaml = serde_yaml::to_string(&doc)
+            .map_err(|e| format!("Failed to serialize updated tunnel YAML: {}", e))?;
+
+        // Pre-flight validation
+        let mut temp_file = tempfile::Builder::new()
+            .prefix(".cloudflared-unexpose-")
+            .suffix(".yml")
+            .tempfile()
+            .map_err(|e| format!("Failed to create temporary validation file: {}", e))?;
+
+        #[cfg(unix)]
+        {
+            let permissions = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(temp_file.path(), permissions);
+        }
+
+        temp_file
+            .write_all(updated_yaml.as_bytes())
+            .map_err(|e| format!("Failed to write to validation file: {}", e))?;
+        temp_file
+            .flush()
+            .map_err(|e| format!("Failed to flush validation file: {}", e))?;
+
+        let validate_status = Command::new("cloudflared")
+            .args([
+                "tunnel",
+                "--config",
+                temp_file.path().to_str().unwrap_or_default(),
+                "ingress",
+                "validate",
+            ])
+            .output();
+
+        match validate_status {
+            Ok(output) if !output.status.success() => {
+                let err_msg = String::from_utf8_lossy(&output.stderr);
+                return Err(format!(
+                    "Pre-flight ingress validation failed with error:\n{}",
+                    err_msg
+                ));
+            }
+            Err(e) => {
+                eprintln!(
+                    "Warning: could not execute 'cloudflared' for validation: {}",
+                    e
+                );
+            }
+            _ => {}
+        }
+
+        // Write updated config
+        fs::write(&tunnel_config_path, &updated_yaml)
+            .map_err(|e| format!("Failed to write updated tunnel config: {}", e))?;
+
+        let system_config = get_system_tunnel_config_path();
+        if Path::new(system_config).exists() {
+            let _ = Command::new("sudo")
+                .args(["cp", &tunnel_config_path.to_string_lossy(), system_config])
+                .output();
+        }
+
+        // Kickstart daemon
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("sudo")
+                .args([
+                    "launchctl",
+                    "kickstart",
+                    "-k",
+                    "system/com.cloudflare.cloudflared",
+                ])
+                .output();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = Command::new("sudo")
+                .args(["systemctl", "restart", "cloudflared"])
+                .output();
+        }
+
+        // Clear tunnel domain in registry
+        let mut canonical = self.registry.load_canonical_apps();
+        if let Some(app) = canonical.apps.get_mut(app_name) {
+            app.tunnel = None;
+            let _ = self.registry.save_canonical_apps(&canonical);
+        }
+
+        Ok(UnexposeResult {
+            app_name: app_name.to_string(),
+            domain: target_domain.map(|s| s.to_string()),
+            port,
+            rules_removed: removed,
+        })
+    }
+}
+
+impl<'a> TunnelProvider for TunnelManager<'a> {
+    fn id(&self) -> &'static str {
+        "cloudflare"
+    }
+
+    fn expose(&self, app_name: &str, domain: &str, force: bool) -> Result<ExposeResult, String> {
+        self.expose(app_name, domain, force)
+    }
+
+    fn unexpose(&self, app_name: &str, domain_opt: Option<&str>) -> Result<UnexposeResult, String> {
+        self.unexpose(app_name, domain_opt)
     }
 }

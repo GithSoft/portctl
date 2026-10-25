@@ -124,6 +124,56 @@ portctl env -e
 # eval $(portctl env -e)
 ```
 
+### 8. Terminate Process Occupying Port
+
+Gracefully stop processes holding sockets hostage via progressive escalation (`SIGTERM` -> 3s -> `SIGKILL`):
+
+```bash
+# Kill by port number
+portctl kill 4001
+
+# Kill by application name
+portctl kill my-app
+```
+
+### 9. System Health & Diagnostics
+
+Audit rogue listening sockets, file permissions, ghost registrations, and dangling tunnel ingress rules:
+
+```bash
+# Run diagnostics check
+portctl doctor
+
+# Automatically repair permissions and re-sync state
+portctl doctor --fix
+
+# Output JSON for CI/CD or AI agent automation
+portctl doctor --json
+```
+
+### 10. Revoke Tunnel Ingress
+
+Clean up Cloudflare ingress rules and refresh the background daemon:
+
+```bash
+portctl unexpose my-app
+```
+
+### 11. Shell Completions
+
+Generate auto-completions for your shell:
+
+```bash
+# Zsh
+portctl completion zsh > ~/.zsh/completions/_portctl
+
+# Bash
+portctl completion bash > /etc/bash_completion.d/portctl
+
+# Fish
+portctl completion fish > ~/.config/fish/completions/portctl.fish
+```
+
 ---
 
 ## 🛠️ App Integration Guide
