@@ -31,22 +31,18 @@ pub fn get_machine_node_id() -> String {
         }
     }
 
-    // 3. Fallback to hostname heuristics
+    // 3. Fallback to sanitized hostname
     if let Ok(output) = Command::new("hostname").output() {
         let hostname = String::from_utf8_lossy(&output.stdout)
             .trim()
             .to_lowercase();
-        if hostname.contains("mini") {
-            return "node-macmini".to_string();
-        }
-        if hostname.contains("book") || hostname.contains("laptop") {
-            return "node-macbook".to_string();
-        }
         let clean: String = hostname
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
             .collect();
-        return format!("node-{}", clean);
+        if !clean.is_empty() {
+            return format!("node-{}", clean);
+        }
     }
 
     "node-default".to_string()

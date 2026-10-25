@@ -48,9 +48,13 @@ pub fn get_tunnel_config_path() -> PathBuf {
     if let Ok(val) = env::var("PORTCTL_TUNNEL_CONFIG") {
         return PathBuf::from(val);
     }
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("cloudflare-githsoft/tunnel/config.yml")
+    if let Some(home) = dirs::home_dir() {
+        let dot_cloudflared = home.join(".cloudflared/config.yml");
+        if dot_cloudflared.exists() {
+            return dot_cloudflared;
+        }
+    }
+    PathBuf::from("/etc/cloudflared/config.yml")
 }
 
 pub fn get_system_tunnel_config_path() -> &'static str {

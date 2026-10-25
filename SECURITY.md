@@ -13,7 +13,8 @@
 
 We take the security of `portctl` seriously. If you discover a security vulnerability, please do **NOT** open a public issue.
 
-Instead, please report the vulnerability privately by emailing:
-**security@githsoft.com** (or opening a private security advisory on GitHub).
+Instead, please report the vulnerability privately by:
+- Opening a private security advisory on GitHub: [https://github.com/tackelua/portctl/security/advisories/new](https://github.com/tackelua/portctl/security/advisories/new)
+- Or emailing the maintainer directly at: **tackelua@gmail.com**
 
 We will acknowledge receipt within 48 hours and work on a fix promptly.

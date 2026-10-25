@@ -154,9 +154,14 @@ if __name__ == "__main__":
 
 ---
 
-## 🤝 Contributing
+## 🤝 Community & Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before opening a pull request.
+Contributions are welcome! We adhere to community standards and best practices:
+
+- 📖 **Contribution Guidelines**: Please review [CONTRIBUTING.md](CONTRIBUTING.md) before submitting code.
+- 📜 **Code of Conduct**: We follow the Contributor Covenant v2.1 in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- 🔒 **Security Disclosures**: Read our security response policy in [SECURITY.md](SECURITY.md).
+- 📝 **Release History**: See recent enhancements and breaking changes in [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 cargo fmt --all -- --check
@@ -169,3 +174,4 @@ cargo test
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 tackelua.
