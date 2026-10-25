@@ -20,7 +20,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact_name: portctl
             asset_name: portctl-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
-          - os: macos-13 # Intel macOS
+          - os: macos-latest # Intel macOS cross-compiled on Apple Silicon
             target: x86_64-apple-darwin
             artifact_name: portctl
             asset_name: portctl-${{ github.ref_name }}-x86_64-apple-darwin.tar.gz
